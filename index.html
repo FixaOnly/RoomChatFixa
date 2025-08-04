@@ -1,84 +1,67 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en" class="bg-black text-white">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Chat Publik - Fixa</title>
-  <script type="module" src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js"></script>
-  <script type="module" src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FIXA Chatroom</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
   <style>
     body {
-      margin: 0;
-      font-family: 'Segoe UI', sans-serif;
-      background-color: #1c1c1c;
-      color: #f0f0f0;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
+      font-family: 'Poppins', sans-serif;
     }
-    #chat-box {
-      flex: 1;
-      overflow-y: auto;
-      padding: 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .msg {
-      background-color: #2a2a2a;
-      padding: 10px;
-      border-radius: 8px;
-      max-width: 90%;
-    }
-    .msg .name {
+    .admin-name {
+      color: #ff4d4d;
       font-weight: bold;
-      margin-bottom: 2px;
+      text-shadow: 0 0 5px #ff4d4d;
     }
-    .msg .time {
-      font-size: 0.75rem;
-      color: #999;
-      text-align: right;
+    .message-box {
+      transition: all 0.3s ease;
     }
-    .admin {
-      background-color: #400000;
-      border-left: 4px solid red;
+    .message-box:hover {
+      transform: scale(1.02);
     }
-    form {
-      display: flex;
-      padding: 10px;
-      gap: 10px;
+    .bubble-left {
+      background-color: #1f2937;
+      border-radius: 10px 10px 10px 0;
+      align-self: flex-start;
     }
-    input, button {
-      font-size: 1rem;
-      padding: 8px;
+    .bubble-right {
+      background-color: #b91c1c;
+      border-radius: 10px 10px 0 10px;
+      align-self: flex-end;
     }
-    input[type="text"] {
-      flex: 1;
-      background: #333;
-      border: none;
-      border-radius: 4px;
+    .badge-admin {
+      background: #ff4d4d;
       color: white;
-    }
-    button {
-      background: crimson;
-      border: none;
-      color: white;
+      font-size: 0.6rem;
+      padding: 2px 6px;
       border-radius: 4px;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #a00000;
+      margin-left: 6px;
+      text-shadow: 0 0 3px black;
     }
   </style>
 </head>
-<body>
-  <div id="chat-box"></div>
-  <form id="chat-form">
-    <input type="text" id="message" placeholder="Tulis pesan..." required />
-    <button type="submit">Kirim</button>
-  </form>  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-    import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+<body class="bg-black text-white min-h-screen flex flex-col items-center justify-start p-4">
+  <div id="chatApp" class="w-full max-w-md">
+    <div id="namePrompt" class="mb-4">
+      <input id="usernameInput" type="text" placeholder="Masukkan Nama" class="w-full p-2 rounded bg-gray-900 text-white">
+      <button onclick="saveName()" class="mt-2 w-full p-2 bg-red-600 rounded hover:bg-red-700 transition">Masuk</button>
+    </div>
 
+    <div id="chatSection" class="hidden">
+      <div class="mb-2 text-center text-2xl font-bold text-red-500">💬 FixaXiterz Chat</div>
+      <div id="messages" class="h-96 overflow-y-auto space-y-2 p-2 mb-2 rounded bg-gray-900 flex flex-col"></div>
+      <div class="flex space-x-2">
+        <input id="messageInput" type="text" placeholder="Ketik pesan..." class="flex-1 p-2 rounded bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-red-500">
+        <button onclick="sendMessage()" class="bg-red-600 px-4 rounded hover:bg-red-700 transition">Kirim</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
     const firebaseConfig = {
       apiKey: "AIzaSyAk-K4OpybUDsFfGBdTl2h12nIBI_8mab4",
       authDomain: "fixaxiterzweb.firebaseapp.com",
@@ -86,44 +69,105 @@
       projectId: "fixaxiterzweb",
       storageBucket: "fixaxiterzweb.firebasestorage.app",
       messagingSenderId: "724545824906",
-      appId: "1:724545824906:web:e3058b5697062e0ceee573"
+      appId: "1:724545824906:web:e3058b5697062e0ceee573",
+      measurementId: "G-1P6VVHGPT0"
     };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-    const msgRef = ref(db, "messages");
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
 
-    let username = prompt("Masukkan nama kamu:");
-    if (username === "FIXAXITERZROOMCHATVIP") {
-      username = "FIXA-ADMIN";
+    let username = localStorage.getItem("fixa_username");
+    let isAdmin = false;
+
+    function saveName() {
+      const input = document.getElementById("usernameInput").value.trim();
+      if (!input) return;
+
+      if (input === "FIXAXITERZROOMCHATVIP") {
+        username = "FixaXiterz-ADMIN";
+        isAdmin = true;
+      } else {
+        if (localStorage.getItem("fixa_username")) return alert("Nama sudah dibuat dan tidak bisa diubah.");
+        username = input;
+      }
+
+      localStorage.setItem("fixa_username", username);
+      document.getElementById("namePrompt").classList.add("hidden");
+      document.getElementById("chatSection").classList.remove("hidden");
+      listenMessages();
     }
-    const isAdmin = username === "FIXA-ADMIN";
 
-    document.getElementById("chat-form").addEventListener("submit", function (e) {
-      e.preventDefault();
-      const msg = document.getElementById("message").value;
-      const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-      if (msg.trim() !== '') {
-        push(msgRef, {
-          name: username,
-          text: msg,
-          time: time
+    if (username) {
+      if (username === "FixaXiterz-ADMIN") isAdmin = true;
+      document.getElementById("namePrompt").classList.add("hidden");
+      document.getElementById("chatSection").classList.remove("hidden");
+      listenMessages();
+    }
+
+    function sendMessage() {
+      const input = document.getElementById("messageInput");
+      const text = input.value.trim();
+      if (!text) return;
+      const now = new Date();
+      const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      db.ref("chat").push({ name: username, text, time });
+      input.value = "";
+    }
+
+    function listenMessages() {
+      db.ref("chat").on("value", snap => {
+        const messagesDiv = document.getElementById("messages");
+        messagesDiv.innerHTML = "";
+        snap.forEach(data => {
+          const { name, text, time } = data.val();
+          const div = document.createElement("div");
+          const isMsgAdmin = name === "FixaXiterz-ADMIN";
+          const isMyMessage = name === username;
+          div.className = `message-box p-2 max-w-[85%] ${isMyMessage ? 'bubble-right self-end' : 'bubble-left self-start'}`;
+
+          div.innerHTML = `
+            <div class="text-sm mb-1">
+              <strong class="${isMsgAdmin ? 'admin-name' : ''}">${name}</strong>
+              ${isMsgAdmin ? '<span class="badge-admin">ADMIN</span>' : ''}
+            </div>
+            <div class="text-base">${text}</div>
+            <div class="text-xs text-gray-400 text-right mt-1">${time}</div>
+            ${isAdmin ? `
+              <div class="flex justify-end space-x-2 mt-1 text-xs">
+                <button onclick="deleteMsg('${data.key}')" class="text-red-400">Hapus</button>
+                <button onclick="blockUser('${name}')" class="text-yellow-400">Blok</button>
+              </div>` : ''}
+          `;
+          messagesDiv.appendChild(div);
+          messagesDiv.scrollTop = messagesDiv.scrollHeight;
         });
-        document.getElementById("message").value = "";
+      });
+    }
+
+    function deleteMsg(key) {
+      if (confirm("Hapus pesan ini?")) {
+        db.ref("chat/" + key).remove();
+      }
+    }
+
+    function blockUser(nama) {
+      const durasi = prompt("Blokir berapa jam? (1 / 3 / 999 untuk permanen)");
+      if (!durasi) return;
+      const until = Date.now() + parseInt(durasi) * 60 * 60 * 1000;
+      db.ref("blocked/" + nama).set(until);
+    }
+
+    db.ref("blocked").on("value", snap => {
+      const blockedData = snap.val() || {};
+      const input = document.getElementById("messageInput");
+      if (blockedData[username] && blockedData[username] > Date.now()) {
+        input.disabled = true;
+        input.placeholder = "❌ Kamu diblokir sementara...";
+      } else {
+        input.disabled = false;
+        input.placeholder = "Ketik pesan...";
       }
     });
-
-    onChildAdded(msgRef, (data) => {
-      const val = data.val();
-      const msgDiv = document.createElement("div");
-      msgDiv.className = "msg" + (val.name === "FIXA-ADMIN" ? " admin" : "");
-      msgDiv.innerHTML = `
-        <div class="name">${val.name}</div>
-        <div>${val.text}</div>
-        <div class="time">${val.time}</div>
-      `;
-      document.getElementById("chat-box").appendChild(msgDiv);
-      document.getElementById("chat-box").scrollTop = document.getElementById("chat-box").scrollHeight;
-    });
-  </script></body>
+  </script>
+</body>
 </html>
